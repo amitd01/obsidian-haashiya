@@ -95,6 +95,11 @@ function scheduleSave() {
     }
   }, 1200);
 }
+// Embedded ⌘S: skip the autosave wait and have the host write the file now.
+async function saveEmbedded() {
+  clearTimeout(saveTimer);
+  try { await Host.saveNow(serialize()); setDirty(false); snapshot(true); toast('Saved'); } catch (e) { toast(e); }
+}
 const persistDraftClean = () => Host.embedded || Host.store.set(DRAFT, JSON.stringify({ md: serialize(), path: state.path, suggest: state.suggest, dirty: false }));
 
 // Before the document is replaced: write a named file, or ask about an unsaved draft. false = abort.
@@ -1004,7 +1009,7 @@ async function showProvider(p) {
   const has = await Host.hasKey(p).catch(() => false);
   if (shown.provider !== p) return;
   shown.hasKey = has;
-  if (has) $('#keyInput').placeholder = '•••••••• (saved — type to replace)';
+  if (has) $('#keyInput').placeholder = has === 'app' ? '•••••••• (from the Haashiya app — type to use another)' : '•••••••• (saved — type to replace)';
   refreshModels();
 }
 
@@ -1136,8 +1141,9 @@ document.addEventListener('keydown', e => {
   if (inEditor && e.altKey && /^Digit[0-6]$/.test(e.code)) { e.preventDefault(); return setHeading(+e.code.slice(5)); }
   const z = { Equal: 1, NumpadAdd: 1, Minus: -1, NumpadSubtract: -1, Digit0: 0 }[e.code];
   if (z !== undefined && !e.altKey && !e.shiftKey) { e.preventDefault(); return zoom(z); }
-  // In the app, ⌘N/⌘O/⌘S belong to the native File menu; embedded, to the host app; in a browser the page handles them.
-  const files = Host.native || Host.embedded ? {} : { o: openFile, s: () => save(e.shiftKey), n: newDoc };
+  // In the app, ⌘N/⌘O/⌘S belong to the native File menu; in a browser the page handles them. Embedded, the host
+  // app owns files and autosaves, but ⌘S still saves now (a writer's reflex should never be a no-op).
+  const files = Host.native ? {} : Host.embedded ? { s: saveEmbedded } : { o: openFile, s: () => save(e.shiftKey), n: newDoc };
   const keys = { ...files, ',': openSettings, '\\': () => toggleSide() };
   if (e.shiftKey && k === 'c') keys.c = copyClean;
   if (e.shiftKey && k === 'p') keys.p = () => toggleRead();

@@ -1,7 +1,7 @@
 {
   "id": "haashiya",
   "name": "Haashiya",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minAppVersion": "1.11.4",
   "description": "Write a note in Haashiya's editor: inline alternates, ghosted text, an overflow panel, and AI that suggests but never rewrites.",
   "author": "amitd01",

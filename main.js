@@ -10,7 +10,7 @@
 //
 // build.sh bundles this file with the editor (dist/editor.html, inlined) into dist/main.js,
 // because Obsidian installs a plugin as just main.js + manifest.json + styles.css.
-import { Plugin, TextFileView, MarkdownView, requestUrl } from 'obsidian';
+import { Plugin, TextFileView, MarkdownView, Platform, requestUrl } from 'obsidian';
 import EDITOR from './dist/editor.html';
 
 const VIEW = 'haashiya';
@@ -18,6 +18,18 @@ const SLOT = '{{haashiya-key}}'; // = KEY_SLOT in src/host.js
 // Where each provider's key may be sent. 'compat' is the user's own server (its URL is set in Settings).
 const HOSTS = { anthropic: 'api.anthropic.com', openai: 'api.openai.com', gemini: 'generativelanguage.googleapis.com' };
 const secretId = p => `haashiya-${p}-key`; // secret ids: lowercase, digits and dashes
+
+// macOS: the Haashiya app keeps each provider's key in the login keychain (src-tauri main.rs SERVICE,
+// providers.rs account()). Without -w, `security` only reports that the item exists: no prompt. With -w it
+// reads the key, and macOS asks the user once; the key is then copied into Obsidian's secret storage, so
+// it never asks again (and "Allow" is enough — "Always Allow" would open the item to anything using `security`).
+const APP_SERVICE = 'com.amitdas.margin';
+function fromApp(p, read = false) {
+  if (!Platform.isMacOS) return Promise.resolve(null);
+  const args = ['find-generic-password', '-s', APP_SERVICE, '-a', `${p}-api-key`, ...(read ? ['-w'] : [])];
+  return new Promise(done => require('child_process').execFile('/usr/bin/security', args, { timeout: 120e3 },
+    (err, out) => done(err ? null : read ? out.trim() || null : true)));
+}
 
 class HaashiyaView extends TextFileView {
   constructor(leaf, plugin) {
@@ -47,7 +59,9 @@ class HaashiyaView extends TextFileView {
         if (this.file) handlers.load((this.shown = this.data), this.file.path);
       },
       changed: text => { this.data = this.shown = text; this.requestSave(); },
-      hasKey: p => !!secrets.getSecret(secretId(p)),
+      save: text => { this.data = this.shown = text; return this.save(); }, // ⌘S: write now
+      // true: Obsidian holds a key; 'app': only the Haashiya app does (used, and copied over, on first need).
+      hasKey: async p => (secrets.getSecret(secretId(p)) ? true : (await fromApp(p)) ? 'app' : false),
       setKey: (p, key) => (key ? secrets.setSecret(secretId(p), key) : secrets.deleteSecret(secretId(p))),
       request: req => this.plugin.request(req),
       // Shortcuts the editor doesn't use (⌘P, ⌘O…): replay them here so Obsidian's hotkeys still work.
@@ -110,12 +124,19 @@ export default class HaashiyaPlugin extends Plugin {
     await leaf.setViewState({ type, state: { file: file.path }, active: true });
   }
 
+  // The Haashiya app's key for provider p, copied into secret storage the first time (see fromApp).
+  async keyFromApp(p) {
+    const key = await fromApp(p, true);
+    if (key) this.app.secretStorage.setSecret(secretId(p), key);
+    return key;
+  }
+
   // An AI call from the page: fill in the key (only for that provider's server) and send it with
   // Obsidian's requestUrl, which has no CORS limits. Resolves to { status, json } like host.js expects.
   async request({ provider, url, headers = {}, body = null }) {
     const allowed = provider === 'compat' || (HOSTS[provider] && new URL(url).hostname === HOSTS[provider]);
     if (!allowed) throw new Error(`Haashiya won't send a ${provider} request to ${new URL(url).host}`);
-    const key = this.app.secretStorage.getSecret(secretId(provider)) || '';
+    const key = this.app.secretStorage.getSecret(secretId(provider)) || (await this.keyFromApp(provider)) || '';
     const filled = Object.fromEntries(Object.entries(headers).map(([k, v]) => [k, String(v).replace(SLOT, key)]));
     const r = await requestUrl({
       url,

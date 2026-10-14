@@ -13,6 +13,7 @@ Desktop only. Needs Obsidian 1.11.4 or later.
 - Command palette: **Open current note in Haashiya** / **Open current note as Markdown**
 - Right-click a note in the file list: **Open in Haashiya**
 - In a Haashiya tab, the page icon at the top right goes back to Obsidian's editor.
+- Saving is automatic, as everywhere in Obsidian; ⌘S saves at once.
 - Haashiya's marks are plain text, so the note reads fine anywhere:
   `{{one|>two|three}}` holds alternates (`>` marks the chosen one), `~~text~~` is ghosted text.
 
@@ -24,7 +25,8 @@ such as OpenRouter or a local Ollama. You bring your own API key. Nothing is sen
 and agree to a one-time permission prompt. The plugin makes no other network calls.
 
 Your key is kept in Obsidian's secret storage (encrypted with your system keychain), not in the vault, and is
-only ever sent to the provider it belongs to.
+only ever sent to the provider it belongs to. On a Mac with the Haashiya app, the key you saved there is used
+automatically: macOS asks once for permission (choose **Allow**), then the plugin keeps its own copy.
 
 ## Install
 

@@ -88,11 +88,13 @@ export function setTitle(t, path = null) {
 
 /* ---------- embedded (Obsidian) ----------
    attach({ load(text, path), theme(name) }): the parent calls these when its file (re)loads or its theme changes.
-   pushText(text): the document changed; the parent saves it to its file. Keys the page doesn't use go to the
+   pushText(text): the document changed; the parent saves it to its file (autosave). saveNow(text): ⌘S. Keys the page doesn't use go to the
    parent too, so the host app's own shortcuts (command palette, quick switcher) still work from inside the editor. */
 
 export const attach = handlers => bridge?.attach(handlers);
 export const pushText = text => bridge?.changed(text);
+// ⌘S: hand over the text and write the file now, instead of on Obsidian's own schedule.
+export const saveNow = text => bridge?.save(text);
 export const forwardKey = e => bridge?.key?.({ key: e.key, code: e.code, metaKey: e.metaKey, ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, altKey: e.altKey });
 
 /* ---------- windows (app only) ---------- */
@@ -155,7 +157,7 @@ export const setKey = (p, key) => (native ? call('set_api_key', { provider: p, k
 export const hasKey = p => (native ? call('has_api_key', { provider: p })
   : embedded ? Promise.resolve(bridge.hasKey(p))
   : Promise.resolve(!!store.get(perProvider('margin.key', p))));
-// Browser: the key itself. Embedded: the slot the parent fills in, if it holds a key. '' = no key.
+// Browser: the key itself. Embedded: the slot the parent fills in, if it holds a key ('app': the Mac app's). '' = no key.
 const storedKey = async p => (embedded ? ((await hasKey(p)) ? KEY_SLOT : '') : store.get(perProvider('margin.key', p)) || '');
 
 // Thinking models spend output tokens before answering; same allowance as providers.rs THINKING_ROOM.

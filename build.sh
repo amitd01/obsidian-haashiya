@@ -33,7 +33,7 @@ open(out, 'w').write(page)
 PY
 rm "$dist/editor.js"
 
-"${esbuild[@]}" "$here/main.js" --bundle --format=cjs --platform=browser --external:obsidian \
+"${esbuild[@]}" "$here/main.js" --bundle --format=cjs --platform=browser --external:obsidian --external:child_process \
   --loader:.html=text --log-level=warning --outfile="$dist/main.js"
 cp "$here/manifest.json" "$here/styles.css" "$dist/"
 rm "$dist/editor.html"
