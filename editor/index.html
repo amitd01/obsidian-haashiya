@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Margin</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Top bar: file name on the left, quiet controls on the right -->
+  <header id="bar">
+    <span id="file">Untitled</span>
+    <span id="status"></span>
+    <span class="spacer"></span>
+    <span id="count">0 words</span>
+    <button id="readBtn" title="Reading view (⇧⌘P)">Read</button>
+    <button data-tab="alts" title="Alternates — ⌘D adds">Alternates</button>
+    <button data-tab="overflow" title="Overflow — ⌘J stashes a selection">Overflow</button>
+    <button data-tab="lab" title="Lab — AI trims and checks">Lab</button>
+    <button data-tab="history" title="History — earlier versions of this file">History</button>
+    <button id="settingsBtn" title="Settings (⌘,)" aria-label="Settings">⚙︎</button>
+  </header>
+
+  <main>
+    <div id="page">
+      <div id="ed" contenteditable="true" spellcheck="true"></div>
+      <article id="preview"></article>
+    </div>
+
+    <aside id="side" hidden>
+      <section data-pane="alts"></section>
+
+      <section data-pane="overflow" hidden>
+        <p class="hint">Spare writing that might come back. Saved with the file, left out of “Copy clean text”.</p>
+        <h3 id="stashHead" hidden>Stashed</h3>
+        <ol id="stashes" hidden></ol>
+        <h3>Notes</h3>
+        <textarea id="overflow" spellcheck="true" placeholder="Select text and press ⌘J to stash it; a marker keeps its place. Or jot notes here."></textarea>
+      </section>
+
+      <section data-pane="lab" hidden>
+        <h3>Trim</h3>
+        <p class="hint">AI dims what could go. Nothing is rewritten; right-click a dimmed passage to revive it.</p>
+        <div class="row">
+          <button data-trim="slight">Slight trim</button>
+          <button data-trim="tighter">Tighter</button>
+          <button data-trim="half">Cut in half</button>
+        </div>
+        <div class="row">
+          <button id="acceptCuts">Accept cuts</button>
+          <button id="reviveCuts">Revive all cuts</button>
+        </div>
+        <h3>Check</h3>
+        <div class="row">
+          <button data-check="convoluted">Convoluted sentences</button>
+          <button data-check="tone">Off-tone words</button>
+          <button data-check="slop" title="ByLine's anti-slop list: AI tells, staged rhetoric, filler words. Right-click a highlight for cleaner versions.">ReduceSlop</button>
+        </div>
+        <ul id="findings"></ul>
+        <button id="clearFlags" hidden>Clear highlights</button>
+        <h3>Publish</h3>
+        <p class="hint">Copies your clean text shaped for the platform. Your words aren't changed.</p>
+        <div class="row">
+          <button id="substackBtn" title="Title, subtitle and body for Substack's three fields; tables become lists">FormatSubstack</button>
+        </div>
+        <div id="publish"></div>
+      </section>
+
+      <section data-pane="history" hidden>
+        <p class="hint">A version is kept when you open or save the file, and every few minutes while you write. Click one to compare it with now; bring back a line, or the whole version.</p>
+        <ol id="versions"></ol>
+      </section>
+    </aside>
+  </main>
+
+  <div id="menu" hidden></div>
+  <div id="toast" hidden></div>
+
+  <!-- Asked once, before the first AI action (App Store guideline 5.1.2(i)) -->
+  <dialog id="consent">
+    <form method="dialog">
+      <h2>Send text to <span class="aiTo">Anthropic</span>?</h2>
+      <p>AI features use <strong class="aiVia">Anthropic (Claude)</strong> with your own settings. When you use them, Margin sends to <span class="aiTo">Anthropic</span>:</p>
+      <ul>
+        <li><strong>AI alternates</strong> — the paragraph you're working on</li>
+        <li><strong>Trim</strong>, <strong>Checks</strong> and <strong>ReduceSlop</strong> — the whole document (without ghosted text or overflow)</li>
+      </ul>
+      <p class="hint">Nothing is sent unless you use one of these. What happens to it there is set by that provider's privacy policy. You're asked again for each provider; removing its key in Settings withdraws this permission.</p>
+      <menu>
+        <span class="spacer"></span>
+        <button value="cancel">Not now</button>
+        <button value="allow" class="primary">Allow</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="settings">
+    <form method="dialog">
+      <h2>Settings</h2>
+      <label>AI provider
+        <select id="providerInput">
+          <option value="anthropic">Anthropic (Claude)</option>
+          <option value="openai">OpenAI</option>
+          <option value="gemini">Google Gemini</option>
+          <option value="compat">OpenAI-compatible server (OpenRouter, Ollama…)</option>
+        </select>
+      </label>
+      <label id="baseUrlRow" hidden>Server URL
+        <input id="baseUrlInput" type="url" spellcheck="false" placeholder="http://localhost:11434/v1">
+      </label>
+      <label>API key
+        <input id="keyInput" type="password" autocomplete="off">
+      </label>
+      <p class="hint" id="keyNote"></p>
+      <!-- A list fetched from the provider, but any id can be typed: lists go stale, ids don't need to -->
+      <label>Model
+        <input id="modelInput" type="text" spellcheck="false" list="modelList" autocomplete="off">
+        <datalist id="modelList"></datalist>
+      </label>
+      <p class="hint" id="modelNote"></p>
+      <h3>Look &amp; sound</h3>
+      <div class="look">
+        <label>Font
+          <select id="fontInput">
+            <option value="serif">Book serif</option>
+            <option value="sans">Sans</option>
+            <option value="mono">Monospace</option>
+            <option value="typewriter">Typewriter</option>
+          </select>
+        </label>
+        <label>Ink
+          <select id="inkInput">
+            <option value="default">Default</option>
+            <option value="sepia">Sepia</option>
+            <option value="blue">Fountain-pen blue</option>
+            <option value="green">Green</option>
+          </select>
+        </label>
+        <label>Typing sound
+          <select id="soundInput">
+            <option value="off">Off</option>
+            <option value="typewriter">Typewriter</option>
+            <option value="keyboard">Mechanical keyboard</option>
+            <option value="notes">Musical notes</option>
+          </select>
+        </label>
+      </div>
+      <div class="look">
+        <label>Volume
+          <input id="volumeInput" type="range" min="0" max="1" step="0.05">
+        </label>
+        <label>Scale
+          <select id="scaleInput">
+            <option value="major">Major</option>
+            <option value="minor">Minor</option>
+            <option value="pentatonic">Pentatonic</option>
+            <option value="blues">Blues</option>
+          </select>
+        </label>
+        <label>Key
+          <select id="tonicInput">
+            <option>C</option><option>C#</option><option>D</option><option>D#</option><option>E</option><option>F</option>
+            <option>F#</option><option>G</option><option>G#</option><option>A</option><option>A#</option><option>B</option>
+          </select>
+        </label>
+      </div>
+      <p class="hint">These apply right away. Scale and key are for the musical-notes sound: major and minor use all seven notes, pentatonic five that never clash. ⇧⌘T switches typewriter mode (typewriter font + sound) on and off.</p>
+      <menu>
+        <button type="button" id="clearKey">Remove key</button>
+        <button type="button" id="whatsNewBtn">What's new</button>
+        <span class="spacer"></span>
+        <button value="cancel">Cancel</button>
+        <button value="save" class="primary">Save</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <input type="file" id="filepick" accept=".md,.markdown,.txt,.docx,.rtf,.html,.htm,.pdf" hidden>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

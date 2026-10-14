@@ -1,0 +1,24 @@
+# Release: builds the plugin and publishes dist/ as a GitHub release tagged with manifest.json's version
+# (Obsidian and BRAT download main.js, manifest.json and styles.css from the release whose tag equals the
+# version, no "v"). Run it from the Actions tab after bumping manifest.json and versions.json.
+name: Release
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: bash build.sh
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v=$(node -p "require('./manifest.json').version")
+          gh release create "$v" dist/main.js dist/manifest.json dist/styles.css \
+            --target "$GITHUB_SHA" --title "$v" --notes "Haashiya for Obsidian $v. Install with BRAT: amitd01/obsidian-haashiya"
