@@ -133,10 +133,22 @@ export default class HaashiyaPlugin extends Plugin {
 
   // An AI call from the page: fill in the key (only for that provider's server) and send it with
   // Obsidian's requestUrl, which has no CORS limits. Resolves to { status, json } like host.js expects.
-  async request({ provider, url, headers = {}, body = null }) {
+  async request(req) {
+    const { provider, url, headers = {} } = req;
     const allowed = provider === 'compat' || (HOSTS[provider] && new URL(url).hostname === HOSTS[provider]);
     if (!allowed) throw new Error(`Haashiya won't send a ${provider} request to ${new URL(url).host}`);
-    const key = this.app.secretStorage.getSecret(secretId(provider)) || (await this.keyFromApp(provider)) || '';
+    const usesKey = Object.values(headers).some(v => String(v).includes(SLOT));
+    const saved = this.app.secretStorage.getSecret(secretId(provider));
+    let r = await this.send(req, saved || (usesKey && (await this.keyFromApp(provider))) || '');
+    // Key rejected, and the Haashiya app holds a different one (the key was changed there): take it, try once more.
+    if ((r.status === 401 || r.status === 403) && usesKey && saved && (await fromApp(provider))) {
+      const fresh = await this.keyFromApp(provider);
+      if (fresh && fresh !== saved) r = await this.send(req, fresh);
+    }
+    return r;
+  }
+
+  async send({ url, headers = {}, body = null }, key) {
     const filled = Object.fromEntries(Object.entries(headers).map(([k, v]) => [k, String(v).replace(SLOT, key)]));
     const r = await requestUrl({
       url,
